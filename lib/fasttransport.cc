@@ -66,7 +66,7 @@ static void fasttransport_response(void *_context, void *_tag) {
     auto *rt = reinterpret_cast<req_tag_t *>(_tag);
     Debug("Received respose, reqType = %d", rt->reqType);
     rt->src->ReceiveResponse(rt->reqType,
-                            reinterpret_cast<char *>(rt->resp_msgbuf.buf));
+                            reinterpret_cast<char *>(rt->resp_msgbuf.buf_));
     c->rpc->free_msg_buffer(rt->req_msgbuf);
     c->rpc->free_msg_buffer(rt->resp_msgbuf);
     c->client.req_tag_pool.free(rt);
@@ -88,8 +88,8 @@ static void fasttransport_request(erpc::ReqHandle *req_handle, void *_context) {
     c->server.req_handle = req_handle;
     // upcall to the app
     c->server.receiver->ReceiveRequest(req_handle->get_req_msgbuf()->get_req_type(),
-                                reinterpret_cast<char *>(req_handle->get_req_msgbuf()->buf),
-                                reinterpret_cast<char *>(req_handle->pre_resp_msgbuf.buf));
+                                reinterpret_cast<char *>(req_handle->get_req_msgbuf()->buf_),
+                                reinterpret_cast<char *>(req_handle->pre_resp_msgbuf_.buf_));
 #endif
 }
 
@@ -148,7 +148,7 @@ FastTransport::FastTransport(const transport::Configuration &config,
     // right now we create one nexus object per thread
     std::string local_uri = ip + ":" + std::to_string(erpc::kBaseSmUdpPort + id);
     nexus = new erpc::Nexus(local_uri, numa_node, 0);
-    Warning("Created nexus object with local_uri = %s", local_uri.c_str());
+    Warning("Created nexus object with local_uri = %s, numa_node = %u", local_uri.c_str(), numa_node);
 
     // register receive handlers
     for (uint8_t j = 1; j <= nr_req_types; j++) {
@@ -161,7 +161,7 @@ FastTransport::FastTransport(const transport::Configuration &config,
                                             static_cast<void *>(c),
                                             static_cast<uint8_t>(id),
                                             basic_sm_handler, phy_port);
-    c->rpc->retry_connect_on_invalid_rpc_id = true;
+    c->rpc->retry_connect_on_invalid_rpc_id_ = true;
     fasttransport_lock.unlock();
 }
 
@@ -185,7 +185,7 @@ inline char *FastTransport::GetRequestBuf(size_t reqLen, size_t respLen) {
     c->client.crt_req_tag = c->client.req_tag_pool.alloc();
     c->client.crt_req_tag->req_msgbuf = c->rpc->alloc_msg_buffer_or_die(reqLen);
     c->client.crt_req_tag->resp_msgbuf = c->rpc->alloc_msg_buffer_or_die(respLen);
-    return reinterpret_cast<char *>(c->client.crt_req_tag->req_msgbuf.buf);
+    return reinterpret_cast<char *>(c->client.crt_req_tag->req_msgbuf.buf_);
 }
 
 inline int FastTransport::GetSession(TransportReceiver *src, uint8_t replicaIdx, uint8_t dstRpcIdx) {
@@ -265,8 +265,8 @@ bool FastTransport::SendRequestToAll(TransportReceiver *src,
             rt->resp_msgbuf = c->rpc->alloc_msg_buffer_or_die(c->rpc->get_max_data_per_pkt());
             rt->reqType = reqType;
             rt->src = src;
-            std::memcpy(reinterpret_cast<char *>(rt->req_msgbuf.buf),
-                        reinterpret_cast<char *>(c->client.crt_req_tag->req_msgbuf.buf), msgLen);
+            std::memcpy(reinterpret_cast<char *>(rt->req_msgbuf.buf_),
+                        reinterpret_cast<char *>(c->client.crt_req_tag->req_msgbuf.buf_), msgLen);
             c->rpc->enqueue_request(session_id, reqType,
                                     &rt->req_msgbuf,
                                     &rt->resp_msgbuf,
@@ -303,7 +303,7 @@ bool FastTransport::SendResponse(uint64_t reqHandleIdx, size_t msgLen) {
 // Assumes we already put the response in c->server.req_handle->pre_resp_msgbuf
 bool FastTransport::SendResponse(size_t msgLen) {
     // we get here from fasttransport_rpc_request
-    auto &resp = c->server.req_handle->pre_resp_msgbuf;
+    auto &resp = c->server.req_handle->pre_resp_msgbuf_;
     c->rpc->resize_msg_buffer(&resp, msgLen);
     c->rpc->enqueue_response(c->server.req_handle, &resp);
     Debug("Sent response, msgLen = %lu\n", msgLen);

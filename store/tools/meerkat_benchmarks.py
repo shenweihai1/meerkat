@@ -101,16 +101,17 @@ def azure_servers():
 # listed by ibv_devinfo.
 def zookeeper_clients():
     return {
-        RemoteHost('10.100.5.3') : {'phys_port'  : 1}, # anteater-1g
-        RemoteHost('10.100.3.49') : {'phys_port'  : 0}, # bongo-1g
-        RemoteHost('10.100.5.7') : {'phys_port'  : 1}, # capybara-1g
-        RemoteHost('10.100.5.13') : {'phys_port'  : 0}, # ibex-1g
-        RemoteHost('10.100.5.146'): {'phys_port'  : 1}, # lemur-1g
-        RemoteHost('10.100.5.144'): {'phys_port'  : 1}, # mongoose-1g
-        RemoteHost('10.100.5.15'): {'phys_port'  : 1}, # okapi-1g
-        RemoteHost('10.100.5.138'): {'phys_port'  : 1}, # platypus-1g
-        RemoteHost('10.100.5.23') : {'phys_port'  : 0}, # rhinoceros-1g
-        RemoteHost('10.100.5.25') : {'phys_port'  : 0}, # sloth-1g
+        RemoteHost('10.0.2.23') : {'phys_port'  : 0}, # anteater-1g
+        #RemoteHost('10.0.2.25') : {'phys_port'  : 0}, # anteater-1g
+        #RemoteHost('10.0.2.26') : {'phys_port'  : 1}, # bongo-1g
+        #RemoteHost('10.100.5.7') : {'phys_port'  : 1}, # capybara-1g
+        #RemoteHost('10.100.5.13') : {'phys_port'  : 0}, # ibex-1g
+        #RemoteHost('10.100.5.146'): {'phys_port'  : 1}, # lemur-1g
+        #RemoteHost('10.100.5.144'): {'phys_port'  : 1}, # mongoose-1g
+        #RemoteHost('10.100.5.15'): {'phys_port'  : 1}, # okapi-1g
+        #RemoteHost('10.100.5.138'): {'phys_port'  : 1}, # platypus-1g
+        #RemoteHost('10.100.5.23') : {'phys_port'  : 0}, # rhinoceros-1g
+        #RemoteHost('10.100.5.25') : {'phys_port'  : 0}, # sloth-1g
     }
     #return {
     #    RemoteHost('10.100.1.2') : {'phys_port'  : 1}, # anteater
@@ -127,9 +128,10 @@ def zookeeper_clients():
 
 def zookeeper_servers():
     return {
-        RemoteHost('10.100.5.153') : {'phys_port'  : 0}, # vicuna-1g
-        RemoteHost('10.100.5.174') : {'phys_port'  : 0}, # tapir-1g
-        RemoteHost('10.100.5.191') : {'phys_port'  : 0}, # unicorn-1g
+        #RemoteHost('10.0.2.23') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.0.2.25') : {'phys_port'  : 0}, # vicuna-1g
+        #RemoteHost('10.100.5.174') : {'phys_port'  : 0}, # tapir-1g
+        #3RemoteHost('10.100.5.191') : {'phys_port'  : 0}, # unicorn-1g
     }
 
 def num_clients_to_triple(num_clients):
@@ -271,6 +273,8 @@ def setup_rx_queues(servers, queues_cnt):
 def run_benchmark(bench_dir, clients, servers, parameters):
     # Clear the clients' and servers' out and err files in /mnt/log.
     print(boxed('Clearing *_out.txt and *_err.txt'))
+    print("Clients: ", clients)
+    print("Servers: ", servers)
     clear_out_files = Parallel([host.run(['rm', '/mnt/log/*_out.txt'])
                                 for host in list(clients.keys()) + list(servers.keys())],
                                 aggregate=True)

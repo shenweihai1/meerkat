@@ -9,13 +9,14 @@ CXX = clang++
 LD = clang++
 EXPAND = lib/tmpl/expand
 
-ERPC_PATH= "./third_party/eRPC"
+#ERPC_PATH= "./third_party/eRPC"
 #ERPC_PATH= "/biggerraid/users/aaasz/eRPC"
+ERPC_PATH="/root/eRPC"
 
 ERPC_CFLAGS_RAW := -I $(ERPC_PATH)/src -DRAW=true
 ERPC_LDFLAGS_RAW := -L $(ERPC_PATH)/build -lerpc -lnuma -ldl -lgflags -libverbs
 
-ERPC_CFLAGS_DPDK := -I $(ERPC_PATH)/src -I /usr/include/dpdk -DDPDK=true -march=native
+ERPC_CFLAGS_DPDK := -I $(ERPC_PATH)/src -I /usr/include/dpdk -DERPC_DPDK=true -march=native
 ERPC_LDFLAGS_DPDK := -L $(ERPC_PATH)/build -lerpc -lnuma -ldl -lgflags -ldpdk
 
 CFLAGS_WARNINGS:= -Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro -Wno-uninitialized
@@ -28,9 +29,15 @@ CFLAGS := -g -Wall $(CFLAGS_WARNINGS) -iquote.obj/gen -O2 -DNASSERT -fno-omit-fr
 CXXFLAGS := -g -std=c++0x
 LDFLAGS := -levent_pthreads -pthread -lboost_fiber -lboost_context -lboost_system -lboost_thread
 
+# add asio
+ASIO_PATH="/root/eRPC/third_party/asio"
+ASIO_CFLAGS := -I $(ASIO_PATH)/include
+CFLAGS += $(ASIO_CFLAGS)
+
 ## Add ERPC flags ##
-CFLAGS += $(ERPC_CFLAGS_RAW)
-LDFLAGS += $(ERPC_LDFLAGS_RAW)
+CFLAGS += $(ERPC_CFLAGS_DPDK)
+LDFLAGS += $(ERPC_LDFLAGS_DPDK)
+
 
 ## Debian package: check ##
 #CHECK_CFLAGS := $(shell pkg-config --cflags check)

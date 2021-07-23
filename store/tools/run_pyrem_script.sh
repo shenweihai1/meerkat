@@ -1,7 +1,7 @@
 python e1_e2.py \
-		--server_binary /biggerraid/users/adriana/meerkat/store/meerkatstore/meerkat_server                      \
-		--client_binary /biggerraid/users/adriana/meerkat/store/benchmark/retwisClient                           \
-		--config_file_directory /biggerraid/users/adriana/meerkat/store/tools                                   \
-		--key_file /biggerraid/users/adriana/meerkat/store/tools/keys                                           \
-		--suite_directory /mnt/log/adrianabenchmark
+		--server_binary /root/meerkat/store/meerkatstore/meerkatir/meerkat_server                      \
+		--client_binary /root/meerkat/store/benchmark/store/benchmark/retwisClient                           \
+		--config_file_directory /root/meerkat/store/tools                                   \
+		--key_file /root/meerkat/store/tools/keys                                           \
+		--suite_directory /root/logs 
 

@@ -53,6 +53,7 @@ void server_thread_func(meerkatstore::meerkatir::Server *server,
       transport::Configuration config,
       uint8_t numa_node, uint8_t thread_id) {
     std::string local_uri = config.replica(FLAGS_replicaIndex).host;
+    printf("local_uri - xxx: %s\n", local_uri.c_str());
     // TODO: provide mapping function from thread_id to numa_node
     // for now assume it's round robin
     // TODO: get rid of the hardcoded number of request types
@@ -167,11 +168,14 @@ main(int argc, char **argv)
     //std::vector<std::thread> thread_arr(FLAGS_numServerThreads);
     std::vector<std::thread> thread_arr(ht_ct);
     //for (uint8_t i = 0; i < FLAGS_numServerThreads; i++) {
+    ht_ct = 1;
     for (uint8_t i = 0; i < ht_ct; i++) {
         // thread_arr[i] = std::thread(server_thread_func, server, config, i%nn_ct, i);
         // erpc::bind_to_core(thread_arr[i], i%nn_ct, i/nn_ct);
         uint8_t numa_node = (i % 4 < 2)?0:1;
+	numa_node=0;
         uint8_t idx = i/4 + (i % 2) * 20;
+	idx=0;
         thread_arr[i] = std::thread(server_thread_func, server, config, numa_node, i);
         erpc::bind_to_core(thread_arr[i], numa_node, idx);
     }
