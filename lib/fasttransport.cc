@@ -53,6 +53,7 @@
 #include <thread>
 #include <sched.h>
 
+
 #include <numa.h>
 #include <boost/fiber/all.hpp>
 
@@ -152,6 +153,7 @@ FastTransport::FastTransport(const transport::Configuration &config,
 
     // register receive handlers
     for (uint8_t j = 1; j <= nr_req_types; j++) {
+        std::cout << "register req_types" << std::endl;
         nexus->register_req_func(j, fasttransport_request, erpc::ReqFuncType::kForeground);
     }
 

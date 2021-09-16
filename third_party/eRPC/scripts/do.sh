@@ -30,11 +30,14 @@ numa_node=$2
 
 # Non-GDB mode
 if [ "$#" -eq 2 ]; then
-  blue "do.sh: Launching process $epid on NUMA node $numa_node"
+  blue "do.sh: Launching process $epid on NUMA node $numa_node auto-app $autorun_app "
 
-  sudo -E env LD_LIBRARY_PATH=$LD_LIBRARY_PATH \
-    numactl --cpunodebind=$numa_node --membind=$numa_node \
-    ./build/$autorun_app $(cat apps/$autorun_app/config) \
+  #sudo -E env LD_LIBRARY_PATH=$LD_LIBRARY_PATH \
+  #  numactl --cpunodebind=$numa_node --membind=$numa_node \
+  #  ./build/$autorun_app $(cat apps/$autorun_app/config) \
+  #  --process_id $epid --numa_node $numa_node
+  echo "starting to execute..."
+  sudo -E env LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/ LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/ ./build/$autorun_app $(cat apps/$autorun_app/config) \
     --process_id $epid --numa_node $numa_node
 fi
 

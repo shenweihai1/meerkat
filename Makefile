@@ -9,15 +9,16 @@ CXX = clang++
 LD = clang++
 EXPAND = lib/tmpl/expand
 
-#ERPC_PATH= "./third_party/eRPC"
-#ERPC_PATH= "/biggerraid/users/aaasz/eRPC"
-ERPC_PATH="/root/eRPC"
+#ERPC_PATH="/home/azureuser/eRPC"
+ERPC_PATH="./third_party/eRPC"
 
 ERPC_CFLAGS_RAW := -I $(ERPC_PATH)/src -DRAW=true
 ERPC_LDFLAGS_RAW := -L $(ERPC_PATH)/build -lerpc -lnuma -ldl -lgflags -libverbs
 
-ERPC_CFLAGS_DPDK := -I $(ERPC_PATH)/src -I /usr/include/dpdk -DERPC_DPDK=true -march=native
-ERPC_LDFLAGS_DPDK := -L $(ERPC_PATH)/build -lerpc -lnuma -ldl -lgflags -ldpdk
+ERPC_CFLAGS_DPDK := -I $(ERPC_PATH)/src -DERPC_DPDK=true -march=native -I /usr/include/dpdk -DERPC_LOG_LEVEL=6 -DERPC_TESTING=false -DGFLAGS_IS_A_DLL=0 # -DTRANSPORT=dpdk -DAZURE=on -DPERF=ON
+ERPC_LDFLAGS_DPDK := -L $(ERPC_PATH)/build -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lerpc -lpthread  -lnuma -ldl -lgflags  -ldl -libverbs -lmlx4 -lmlx5
+
+#set(LIBRARIES ${LIBRARIES} -Wl,--whole-archive dpdk -Wl,--no-whole-archive numa dl ibverbs mlx4 mlx5)
 
 CFLAGS_WARNINGS:= -Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro -Wno-uninitialized
 
@@ -26,11 +27,16 @@ CFLAGS_WARNINGS:= -Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro
 #
 # [1]: http://www.brendangregg.com/perf.html#FlameGraphs
 CFLAGS := -g -Wall $(CFLAGS_WARNINGS) -iquote.obj/gen -O2 -DNASSERT -fno-omit-frame-pointer
+CXX_FLAGS :=  -std=c++11 -march=native -Wall -Wextra -Werror -pedantic -Wsign-conversion -Wold-style-cast -Wno-unused-function -Wno-nested-anon-types -Wno-keyword-macro -Wno-deprecated-declarations -O2 -g -DNDEBUG   -flto -std=gnu++11
 CXXFLAGS := -g -std=c++0x
 LDFLAGS := -levent_pthreads -pthread -lboost_fiber -lboost_context -lboost_system -lboost_thread
 
+CXX_INCLUDES = -I/home/azureuser/meerkat/third_party/eRPC/third_party/googletest/googletest/include -I/home/azureuser/meerkat/third_party/eRPC/third_party/googletest/googletest -isystem /home/azureuser/meerkat/third_party/eRPC/third_party/asio/include -I/home/azureuser/meerkat/third_party/eRPC/src -isystem /home/azureuser/meerkat/third_party/eRPC/third_party -isystem /usr/include/dpdk -I/home/azureuser/meerkat/third_party/eRPC/third_party/gflags/include -I/home/azureuser/meerkat/third_party/eRPC/third_party/HdrHistogram_c/src
+
+CXX_INCLUDES := $(CXX_INCLUDES)
+
 # add asio
-ASIO_PATH="/root/eRPC/third_party/asio"
+ASIO_PATH="./third_party/eRPC/third_party/asio"
 ASIO_CFLAGS := -I $(ASIO_PATH)/include
 CFLAGS += $(ASIO_CFLAGS)
 
@@ -285,6 +291,11 @@ $(TEST_BINS:%=gdb-%): gdb-%: %
 
 .PHONY: test
 test: $(TEST_BINS:%=run-%)
+
+.PHONY: erpc
+erpc:
+	cd ./third_party/eRPC && make -j4
+
 .PHONY: check
 check: test
 

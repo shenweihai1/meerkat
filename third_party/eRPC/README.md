@@ -1,5 +1,5 @@
 eRPC is a fast and general-purpose RPC library for datacenter networks.
-Our NSDI 2019 [paper](http://www.cs.cmu.edu/~akalia/doc/nsdi19/erpc_nsdi19.pdf)
+Our NSDI 2019 [paper](https://www.usenix.org/system/files/nsdi19-kalia.pdf)
 describes the system in detail.
 [Documentation](http://www.cs.cmu.edu/~akalia/erpc_doc) is available online.
 
@@ -18,18 +18,18 @@ Some highlights:
 
 ## Requirements
  * Toolchain: A C++11 compiler and CMake 2.8+
- * See `scripts/packages/` for required software packages for your distro. 
-   Install _exactly one_ of the following, mutually-incompatible packages:
-   * Mellanox OFED for Mellanox NICs
-   * System-wide DPDK for other, DPDK-compatible NICs
- * NICs: Fast (10 GbE+) bare-metal NICs are needed for good performance. eRPC
-   works best with Mellanox Ethernet and InfiniBand NICs. Any DPDK-capable NICs
-   also work well. Slower/virtual NICs can still be used for testing and
-   development.
+ * See `scripts/packages/` for required software packages for your distro.
+ * The latest `rdma_core`, preferably installed from source
+ * For non-Mellanox DPDK-compatible NICs, a system-wide installation from DPDK
+   19.11.5 LTS sources (i.e., `sudo make install T=x86_64-native-linuxapp-gcc
+   DESTDIR=/usr`). Other DPDK versions are not supported.
+ * NICs: Fast (10 GbE+) NICs are needed for good performance. eRPC works best
+   with Mellanox Ethernet and InfiniBand NICs. Any DPDK-capable NICs
+   also work well.
  * System configuration:
    * At least 1024 huge pages on every NUMA node, and unlimited SHM limits
-   * On a machine with `n` eRPC processes, eRPC uses kernel UDP ports
-     `{31850, ..., 31850 + n - 1}.` These ports should be open on the management
+   * On a machine with `n` eRPC processes, eRPC uses kernel UDP ports `{31850,
+     ..., 31850 + n - 1}.` These ports should be open on the management
      network. See `scripts/firewalld/erpc_firewall.sh` for systems running
      `firewalld`.
 
@@ -53,23 +53,78 @@ Some highlights:
 ## Supported bare-metal NICs:
  * Ethernet/UDP mode:
    * ConnectX-4 or newer Mellanox Ethernet NICs: Use `DTRANSPORT=raw`
-   * DPDK-compatible NICs that support flow-director: Use `DTRANSPORT=dpdk`
+   * DPDK-enabled NICs that support flow-director: Use `DTRANSPORT=dpdk`
      * Intel 82599 and Intel X710 NICs have been tested
-     * Virtual NICs have not been tested
      * `raw` transport is faster for Mellanox NICs, which also support DPDK
+   * DPDK-enabled NICs on Microsoft Azure: Use `-DTRANSPORT=dpdk -DAZURE=on`
    * ConnectX-3 Ethernet NICs are supported in eRPC's RoCE mode
  * RDMA (InfiniBand/RoCE) NICs: Use `DTRANSPORT=infiniband`. Add `DROCE=on`
    if using RoCE.
  * Mellanox drivers optimized specially for eRPC are available in the `drivers`
    directory
 
-## Running eRPC without fast bare-metal NICs:
- * Follow these instructions to try out eRPC on a machine without fast Mellanox
-   or DPDK-capable NICs (e.g., on your desktop or in a virtual machine). This is
-   for development only: eRPC is not designed to perform well in these settings.
-   eRPC has been tested on KVM virtual machines and in Amazon EC2.
- * Create an emulated RoCE device with [SoftRoCE] (instructions soon).
- * Compile eRPC with `DTRANSPORT=infiniband -DROCE=on`
+## Running eRPC over DPDK on Microsoft Azure VMs
+
+  * eRPC works well on Azure VMs with accelerated networking.
+
+  * Configure two Ubuntu 18.04 VMs as below. Use the same resource group and
+    availability zone for both VMs.
+
+    * Uncheck "Accelerated Networking" when launching each VM from the Azure
+      portal (e.g., F32s-v2). For now, this VM should have just the control
+      network (i.e., `eth0`) and `lo` interfaces.
+    * Add a NIC to Azure via the Azure CLI: `az network nic create
+      --resource-group <your resource group> --name <a name for the NIC>
+      --vnet-name <name of the VMs' virtual network> --subnet default
+      --accelerated-networking true --subscription <Azure subscription, if
+      any>`
+    * Stop the VM launched earlier, and attach the NIC created in the previous
+      step to the VM (i.e., in "Networking" -> "Attach network interface").
+    * Re-start the VM. It should have a new interface called `eth1`, which eRPC
+      will use for DPDK traffic.
+
+  * Prepare DPDK 19.11.5:
+    * [rdma-core](https://github.com/linux-rdma/rdma-core) must be installed
+      from source. First, install its dependencies listed in rdma-core's README.
+      Then, in the `rdma-core` directory:
+       * `cmake .`
+       * `sudo make install`
+    * Install upstream pre-requisite libraries and modules:
+       * `sudo apt install make cmake g++ gcc libnuma-dev libibverbs-dev libgflags-dev numactl`
+       * `sudo modprobe ib_uverbs`
+       * `sudo modprobe mlx4_ib`
+    * Download the [DPDK 19.11.5 tarball](https://core.dpdk.org/download/) and
+      extract it. Other DPDK versions are not supported.
+    * Edit `config/common_base` by changing `CONFIG_RTE_LIBRTE_MLX5_PMD` and
+      `CONFIG_RTE_LIBRTE_MLX4_PMD` to `y` instead of `n`.
+    * Build and install DPDK: `sudo make install T=x86_64-native-linuxapp-gcc
+      DESTDIR=/usr`
+
+    * Create hugepages:
+```
+sudo bash -c "echo 2048 > /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages"
+sudo mkdir /mnt/huge
+sudo mount -t hugetlbfs nodev /mnt/huge
+```
+
+  * Build eRPC's library and latency benchmark:
+```
+cmake . -DTRANSPORT=dpdk -DAZURE=on
+make
+make latency
+```
+
+  * Create the file `scripts/autorun_process_file` like below. Here, do not use
+    the IP addresses of the accelerated NIC (i.e., not of `eth1`).
+```
+<Public IPv4 address of VM #1> 31850 0
+<Public IPv4 address of VM #2> 31850 0
+```
+
+  * Run the eRPC application (the latency benchmark by default):
+    * At VM #1: `./scripts/do.sh 0 0`
+    * At VM #2: `./scripts/do.sh 1 0`
+
 
 ## Configuring and running the provided applications
  * The `apps` directory contains a suite of benchmarks and examples. The
@@ -100,7 +155,7 @@ Some highlights:
  * GitHub issues are preferred over email. Please include the following
    information in the issue:
    * NIC model
-   * Mellanox OFED or DPDK version
+   * `rdma_core` version and DPDK version
    * Operating system
 
 ## Contact

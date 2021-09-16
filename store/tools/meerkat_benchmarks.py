@@ -101,7 +101,22 @@ def azure_servers():
 # listed by ibv_devinfo.
 def zookeeper_clients():
     return {
-        RemoteHost('10.0.2.23') : {'phys_port'  : 0}, # anteater-1g
+        RemoteHost('10.1.0.29') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.30') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.31') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.44') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.32') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.33') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.34') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.35') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.36') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.37') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.38') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.39') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.40') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.41') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.42') : {'phys_port'  : 0}, # vicuna-1g
+        RemoteHost('10.1.0.43') : {'phys_port'  : 0}, # vicuna-1g
         #RemoteHost('10.0.2.25') : {'phys_port'  : 0}, # anteater-1g
         #RemoteHost('10.0.2.26') : {'phys_port'  : 1}, # bongo-1g
         #RemoteHost('10.100.5.7') : {'phys_port'  : 1}, # capybara-1g
@@ -128,8 +143,10 @@ def zookeeper_clients():
 
 def zookeeper_servers():
     return {
+        RemoteHost('10.1.0.7') : {'phys_port'  : 0}, # anteater-1g
+        RemoteHost('10.1.0.8') : {'phys_port'  : 0}, # anteater-1g
+        RemoteHost('10.1.0.9') : {'phys_port'  : 0}, # anteater-1g
         #RemoteHost('10.0.2.23') : {'phys_port'  : 0}, # vicuna-1g
-        RemoteHost('10.0.2.25') : {'phys_port'  : 0}, # vicuna-1g
         #RemoteHost('10.100.5.174') : {'phys_port'  : 0}, # tapir-1g
         #3RemoteHost('10.100.5.191') : {'phys_port'  : 0}, # unicorn-1g
     }

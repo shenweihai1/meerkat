@@ -28,7 +28,18 @@
  * SOFTWARE.
  *
  **********************************************************************/
+#include "iostream"
+#include <rte_memory.h>
+#include <rte_launch.h>
+#include <rte_eal.h>
+#include <rte_per_lcore.h>
+#include <rte_lcore.h>
+#include <rte_debug.h>
 
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <sched.h>
 #include <cstdlib>
@@ -53,7 +64,8 @@ void server_thread_func(meerkatstore::meerkatir::Server *server,
       transport::Configuration config,
       uint8_t numa_node, uint8_t thread_id) {
     std::string local_uri = config.replica(FLAGS_replicaIndex).host;
-    printf("local_uri - xxx: %s\n", local_uri.c_str());
+    printf("start server....\nlocal_uri - %s\n", local_uri.c_str());
+    std::cout << "numa_node: " << numa_node << std::endl;
     // TODO: provide mapping function from thread_id to numa_node
     // for now assume it's round robin
     // TODO: get rid of the hardcoded number of request types
@@ -91,6 +103,13 @@ void signal_handler( int signal_num ) {
 int
 main(int argc, char **argv)
 {
+    // debug purpose - 02
+    std::cout << "XXXX - start main" << std::endl;
+    //int ret = rte_eal_init(argc, argv);
+    //if (ret < 0)
+    //    rte_panic("Cannot init EAL\n");
+    //return 0;
+
     signal(SIGINT, signal_handler);
 
     gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -151,6 +170,7 @@ main(int argc, char **argv)
                 server->Load(key, "null", Timestamp());
             }
         }
+	std::cout << "path: " << FLAGS_keysFile << " : " << ", num: " << FLAGS_numKeys << ", key: " << key << std::endl;
         in.close();
     }
 
@@ -165,18 +185,19 @@ main(int argc, char **argv)
 
     // start the app on all available cores to regulate frequency boosting
     int ht_ct = boost::thread::hardware_concurrency();
-    //std::vector<std::thread> thread_arr(FLAGS_numServerThreads);
-    std::vector<std::thread> thread_arr(ht_ct);
-    //for (uint8_t i = 0; i < FLAGS_numServerThreads; i++) {
-    ht_ct = 1;
-    for (uint8_t i = 0; i < ht_ct; i++) {
+    std::cout << "ht_ct: " << ht_ct << std::endl;
+    std::vector<std::thread> thread_arr(FLAGS_numServerThreads);
+    //std::vector<std::thread> thread_arr(ht_ct);
+    for (uint8_t i = 0; i < FLAGS_numServerThreads; i++) {
+    //for (uint8_t i = 0; i < ht_ct; i++) {
         // thread_arr[i] = std::thread(server_thread_func, server, config, i%nn_ct, i);
         // erpc::bind_to_core(thread_arr[i], i%nn_ct, i/nn_ct);
-        uint8_t numa_node = (i % 4 < 2)?0:1;
-	numa_node=0;
-        uint8_t idx = i/4 + (i % 2) * 20;
-	idx=0;
+        //uint8_t numa_node = (i % 4 < 2)?0:1;
+	uint8_t numa_node = 0;
+        //uint8_t idx = i/4 + (i % 2) * 20; // four server_threads per core
+        uint8_t idx = i; // four server_threads per core
         thread_arr[i] = std::thread(server_thread_func, server, config, numa_node, i);
+	std::cout << "XXXX: setting idx: " << unsigned(idx) << std::endl;
         erpc::bind_to_core(thread_arr[i], numa_node, idx);
     }
 
