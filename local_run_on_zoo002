@@ -1,0 +1,244 @@
+diff --git a/Makefile b/Makefile
+index 978f36f..f6bff51 100644
+--- a/Makefile
++++ b/Makefile
+@@ -9,14 +9,18 @@ CXX = clang++
+ LD = clang++
+ EXPAND = lib/tmpl/expand
+ 
+-#ERPC_PATH="/home/azureuser/eRPC"
++#ERPC_PATH="/home/weihai/eRPC"
+ ERPC_PATH="./third_party/eRPC"
+ 
+ ERPC_CFLAGS_RAW := -I $(ERPC_PATH)/src -DRAW=true
+ ERPC_LDFLAGS_RAW := -L $(ERPC_PATH)/build -lerpc -lnuma -ldl -lgflags -libverbs
+ 
+-ERPC_CFLAGS_DPDK := -I $(ERPC_PATH)/src -DERPC_DPDK=true -march=native -I /usr/include/dpdk -DERPC_LOG_LEVEL=6 -DERPC_TESTING=false -DGFLAGS_IS_A_DLL=0 # -DTRANSPORT=dpdk -DAZURE=on -DPERF=ON
+-ERPC_LDFLAGS_DPDK := -L $(ERPC_PATH)/build -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lerpc -lpthread  -lnuma -ldl -lgflags  -ldl -libverbs -lmlx4 -lmlx5
++#ERPC_CFLAGS_DPDK := -I $(ERPC_PATH)/src -DERPC_DPDK=true -march=native -I /usr/include/dpdk -DERPC_LOG_LEVEL=6 -DERPC_TESTING=false -DGFLAGS_IS_A_DLL=0 # -DTRANSPORT=dpdk -DAZURE=on -DPERF=ON
++#ERPC_LDFLAGS_DPDK := -L $(ERPC_PATH)/build -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lerpc -lpthread  -lnuma -ldl -lgflags  -ldl -libverbs -lmlx4 -lmlx5
++
++# local use infiniband
++ERPC_CFLAGS_DPDK := -I $(ERPC_PATH)/src -DERPC_INFINIBAND=true -march=native -I /usr/include/dpdk -DERPC_LOG_LEVEL=6 -DERPC_TESTING=false -DGFLAGS_IS_A_DLL=0
++ERPC_LDFLAGS_DPDK := -L $(ERPC_PATH)/build -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lpthread -lerpc -lnuma -ldl -lgflags -ldl -libverbs -lmlx4 -lmlx5
+ 
+ #set(LIBRARIES ${LIBRARIES} -Wl,--whole-archive dpdk -Wl,--no-whole-archive numa dl ibverbs mlx4 mlx5)
+ 
+@@ -31,7 +35,7 @@ CXX_FLAGS :=  -std=c++11 -march=native -Wall -Wextra -Werror -pedantic -Wsign-co
+ CXXFLAGS := -g -std=c++0x
+ LDFLAGS := -levent_pthreads -pthread -lboost_fiber -lboost_context -lboost_system -lboost_thread
+ 
+-CXX_INCLUDES = -I/home/azureuser/meerkat/third_party/eRPC/third_party/googletest/googletest/include -I/home/azureuser/meerkat/third_party/eRPC/third_party/googletest/googletest -isystem /home/azureuser/meerkat/third_party/eRPC/third_party/asio/include -I/home/azureuser/meerkat/third_party/eRPC/src -isystem /home/azureuser/meerkat/third_party/eRPC/third_party -isystem /usr/include/dpdk -I/home/azureuser/meerkat/third_party/eRPC/third_party/gflags/include -I/home/azureuser/meerkat/third_party/eRPC/third_party/HdrHistogram_c/src
++CXX_INCLUDES = -I/home/weihai/meerkat/third_party/eRPC/third_party/googletest/googletest/include -I/home/weihai/meerkat/third_party/eRPC/third_party/googletest/googletest -isystem /home/weihai/meerkat/third_party/eRPC/third_party/asio/include -I/home/weihai/meerkat/third_party/eRPC/src -isystem /home/weihai/meerkat/third_party/eRPC/third_party -isystem /usr/include/dpdk -I/home/weihai/meerkat/third_party/eRPC/third_party/gflags/include -I/home/weihai/meerkat/third_party/eRPC/third_party/HdrHistogram_c/src
+ 
+ CXX_INCLUDES := $(CXX_INCLUDES)
+ 
+diff --git a/init.sh b/init.sh
+index 5eb008b..ca71f10 100755
+--- a/init.sh
++++ b/init.sh
+@@ -1,9 +1,9 @@
+ sudo modprobe ib_uverbs
+-sudo modprobe mlx4_ib
++#sudo modprobe mlx4_ib
+ sudo modprobe vfio-pci
+ sudo bash -c "echo 2048 > /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages"
+ sudo mkdir -p /mnt/huge
+ sudo mkdir -p /mnt/log
+ sudo mount -t hugetlbfs nodev /mnt/huge
+-sudo mkdir -p /mnt/log && sudo chown azureuser:azureuser /mnt/log
++sudo mkdir -p /mnt/log && sudo chown weihai:weihai /mnt/log
+ 
+diff --git a/lib/fasttransport.cc b/lib/fasttransport.cc
+index adb7844..518a644 100644
+--- a/lib/fasttransport.cc
++++ b/lib/fasttransport.cc
+@@ -148,6 +148,9 @@ FastTransport::FastTransport(const transport::Configuration &config,
+     // TODO: create one nexus per numa node
+     // right now we create one nexus object per thread
+     std::string local_uri = ip + ":" + std::to_string(erpc::kBaseSmUdpPort + id);
++    if (ip.compare("localhost3")==0) {  // XXX, hard-coded!!! please remove it after submission
++        local_uri = ip + ":" + std::to_string(erpc::kBaseSmUdpPortClient + id);
++    }
+     nexus = new erpc::Nexus(local_uri, numa_node, 0);
+     Warning("Created nexus object with local_uri = %s, numa_node = %u", local_uri.c_str(), numa_node);
+ 
+diff --git a/store/tools/e1_e2.py b/store/tools/e1_e2.py
+index bb1cbcf..80e4ca7 100644
+--- a/store/tools/e1_e2.py
++++ b/store/tools/e1_e2.py
+@@ -61,12 +61,13 @@ def main(args):
+                                        #(78, 78 * 500000, 10, 12, 8),
+                                        #(80, 80 * 500000, 8, 12, 8),
+                                        #(80, 80 * 500000, 10, 12, 8),
++                                       (1, 1 * 1000000, 1, 1, 1), # debug for testing
+ 
+                                        #(4, 4 * 500000, 1, 1, 1), # debug for testing
+ 
+                                        #(4, 4 * 500000, 2, 4, 8), # 124M
+                                        #(8, 8 * 500000, 4, 4, 8), # 248M
+-                                       (12, 12 * 500000, 6, 4, 8), # 372M
++                                       #(12, 12 * 500000, 6, 4, 8), # 372M
+                                        #(16, 16 * 500000, 8, 4, 8), # 496M
+                                        #(32, 32 * 500000, 16, 4, 8),
+                                        ]
+diff --git a/store/tools/f0.shard0.config b/store/tools/f0.shard0.config
+index ba138e7..a6b1532 100644
+--- a/store/tools/f0.shard0.config
++++ b/store/tools/f0.shard0.config
+@@ -1,4 +1,2 @@
+ f 0
+-replica 10.1.0.7:31850
+-replica 10.1.0.8:31850
+-replica 10.1.0.9:31850
++replica localhost:32850
+diff --git a/store/tools/f1.shard0.config b/store/tools/f1.shard0.config
+index ce9f059..c0ec9fb 100644
+--- a/store/tools/f1.shard0.config
++++ b/store/tools/f1.shard0.config
+@@ -1,4 +1,2 @@
+-f 1
+-replica 10.1.0.7:31850
+-replica 10.1.0.8:31850
+-replica 10.1.0.9:31850
++f 0
++replica 127.0.0.1:31850
+diff --git a/store/tools/meerkat_benchmarks.py b/store/tools/meerkat_benchmarks.py
+index 58989d3..63ce7c8 100644
+--- a/store/tools/meerkat_benchmarks.py
++++ b/store/tools/meerkat_benchmarks.py
+@@ -90,9 +90,10 @@ def azure_clients():
+ 
+ def azure_servers():
+     return {
+-        RemoteHost('10.101.0.7') : None, # multitapir-server-1
+-        RemoteHost('10.101.0.8') : None, # multitapir-server-2
+-        RemoteHost('10.101.0.9') : None, # multitapir-server-3
++        #RemoteHost('10.101.0.7') : None, # multitapir-server-1
++        #RemoteHost('10.101.0.8') : None, # multitapir-server-2
++        #RemoteHost('10.101.0.9') : None, # multitapir-server-3
++        RemoteHost('127.0.0.1') : None, # multitapir-server-3
+     }
+ 
+ # The phy_port identifies the index of the active NIC port to use
+@@ -101,22 +102,23 @@ def azure_servers():
+ # listed by ibv_devinfo.
+ def zookeeper_clients():
+     return {
+-        RemoteHost('10.1.0.29') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.30') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.31') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.44') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.32') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.33') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.34') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.35') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.36') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.37') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.38') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.39') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.40') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.41') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.42') : {'phys_port'  : 0}, # vicuna-1g
+-        RemoteHost('10.1.0.43') : {'phys_port'  : 0}, # vicuna-1g
++        RemoteHost('localhost3') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.29') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.30') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.31') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.44') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.32') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.33') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.34') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.35') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.36') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.37') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.38') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.39') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.40') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.41') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.42') : {'phys_port'  : 0}, # vicuna-1g
++        #RemoteHost('10.1.0.43') : {'phys_port'  : 0}, # vicuna-1g
+         #RemoteHost('10.0.2.25') : {'phys_port'  : 0}, # anteater-1g
+         #RemoteHost('10.0.2.26') : {'phys_port'  : 1}, # bongo-1g
+         #RemoteHost('10.100.5.7') : {'phys_port'  : 1}, # capybara-1g
+@@ -143,9 +145,10 @@ def zookeeper_clients():
+ 
+ def zookeeper_servers():
+     return {
+-        RemoteHost('10.1.0.7') : {'phys_port'  : 0}, # anteater-1g
+-        RemoteHost('10.1.0.8') : {'phys_port'  : 0}, # anteater-1g
+-        RemoteHost('10.1.0.9') : {'phys_port'  : 0}, # anteater-1g
++        RemoteHost('localhost') : {'phys_port'  : 0}, # anteater-1g
++        #RemoteHost('10.1.0.7') : {'phys_port'  : 0}, # anteater-1g
++        #RemoteHost('10.1.0.8') : {'phys_port'  : 0}, # anteater-1g
++        #RemoteHost('10.1.0.9') : {'phys_port'  : 0}, # anteater-1g
+         #RemoteHost('10.0.2.23') : {'phys_port'  : 0}, # vicuna-1g
+         #RemoteHost('10.100.5.174') : {'phys_port'  : 0}, # tapir-1g
+         #3RemoteHost('10.100.5.191') : {'phys_port'  : 0}, # unicorn-1g
+@@ -295,18 +298,18 @@ def run_benchmark(bench_dir, clients, servers, parameters):
+     clear_out_files = Parallel([host.run(['rm', '/mnt/log/*_out.txt'])
+                                 for host in list(clients.keys()) + list(servers.keys())],
+                                 aggregate=True)
+-    clear_out_files.start(wait=True)
++    clear_out_files.start(wait=False)
+     clear_err_files = Parallel([host.run(['rm', '/mnt/log/*_err.txt'])
+                                 for host in list(clients.keys()) + list(servers.keys())],
+                                 aggregate=True)
+-    clear_err_files.start(wait=True)
++    clear_err_files.start(wait=False)
+ 
+     # Clear the clients' log files in /mnt/log.
+     print(boxed('Clearing *.log'))
+     clear_log_files = Parallel([client.run(['rm', '/mnt/log/*.log'])
+                                 for client in list(clients.keys())],
+                                 aggregate=True)
+-    clear_log_files.start(wait=True)
++    clear_log_files.start(wait=False)
+ 
+     # Configure RX queues at the servers
+     # setup_rx_queues(servers, parameters.num_server_threads)
+diff --git a/store/tools/run_pyrem_script.sh b/store/tools/run_pyrem_script.sh
+index 3e44fe7..477c60d 100755
+--- a/store/tools/run_pyrem_script.sh
++++ b/store/tools/run_pyrem_script.sh
+@@ -1,8 +1,8 @@
+ python e1_e2.py \
+-		--server_binary /home/azureuser/meerkat/store/meerkatstore/meerkatir/meerkat_server                      \
+-		--client_binary /home/azureuser/meerkat/store/benchmark/benchClient \
+-		--config_file_directory /home/azureuser/meerkat/store/tools                                   \
+-		--key_file /home/azureuser/meerkat/store/tools/keys                                           \
+-		--suite_directory /home/azureuser/meerkat/logs
++		--server_binary /home/weihai/meerkat/store/meerkatstore/meerkatir/meerkat_server                      \
++		--client_binary /home/weihai/meerkat/store/benchmark/benchClient \
++		--config_file_directory /home/weihai/meerkat/store/tools                                   \
++		--key_file /home/weihai/meerkat/store/tools/keys                                           \
++		--suite_directory /home/weihai/meerkat/logs
+ 
+ 
+diff --git a/third_party/eRPC/.gitignore b/third_party/eRPC/.gitignore
+index 380e4e2..b29dfa9 100644
+--- a/third_party/eRPC/.gitignore
++++ b/third_party/eRPC/.gitignore
+@@ -62,8 +62,8 @@ latex
+ # Common temp files
+ ibnet_out
+ sweep_out
+-scripts/autorun_process_file
+-scripts/autorun_app_file
++#scripts/autorun_process_file
++#scripts/autorun_app_file
+ gdb_history
+ *.swp
+ src/config.h
+diff --git a/third_party/eRPC/src/rpc_constants.h b/third_party/eRPC/src/rpc_constants.h
+index aae897d..b6ce6cc 100644
+--- a/third_party/eRPC/src/rpc_constants.h
++++ b/third_party/eRPC/src/rpc_constants.h
+@@ -26,6 +26,7 @@ static constexpr size_t kMaxRpcId = UINT8_MAX - 1;
+  * kBaseSmUdpPort and (kBaseSmUdpPort + kMaxNumERpcProcesses)
+  */
+ static constexpr uint16_t kBaseSmUdpPort = 31850;
++static constexpr uint16_t kBaseSmUdpPortClient = 31860;
+ 
+ static_assert(kBaseSmUdpPort + kMaxNumERpcProcesses +
+                       (kMaxNumERpcProcesses * kMaxRpcId) <
